@@ -11,7 +11,6 @@ STORAGE_FILE = "custom_storage.json"
 
 # --- LOCAL FILE STORAGE ENGINE ---
 def load_permanent_library():
-    """Reads the local JSON file to pull permanently saved ingredients and overrides."""
     if os.path.exists(STORAGE_FILE):
         try:
             with open(STORAGE_FILE, "r") as f:
@@ -21,7 +20,6 @@ def load_permanent_library():
     return {}
 
 def save_permanent_library(data):
-    """Writes custom ingredients and overrides permanently to the local directory file."""
     try:
         with open(STORAGE_FILE, "w") as f:
             json.dump(data, f, indent=4)
@@ -29,14 +27,14 @@ def save_permanent_library(data):
     except Exception:
         return False
 
-# Initialize custom database from local long-term storage file
+# Initialize custom database from local storage
 if "custom_db" not in st.session_state:
     st.session_state.custom_db = load_permanent_library()
 
 if "temp_scan" not in st.session_state:
     st.session_state.temp_scan = None
 
-# Layered Database Resolution: Base File -> Overwritten by user edits
+# Merge base files with custom profiles/overrides
 ACTIVE_DB = {**INGREDIENT_DB, **st.session_state.custom_db}
 
 tab1, tab2, tab3 = st.tabs(["🎛️ Flavor Equalizer Deck", "🧬 AI Database Manager", "⚙️ Library Override & Calibration"])
@@ -153,20 +151,24 @@ with tab2:
             st.rerun()
 
 # ==========================================
-# TAB 3: THE CALIBRATION & OVERRIDE PANEL
+# TAB 3: THE CALIBRATION & OVERRIDE PANEL (WITH EDITABLE NAME)
 # ==========================================
 with tab3:
     st.title("⚙️ Database Calibration Panel")
-    st.write("Tweak, recalibrate, or overwrite the flavor profile values of **any** ingredient in your library.")
+    st.write("Tweak, rename, or overwrite flavor profile values for any item in your library.")
     
     all_sorted_options = sorted(list(ACTIVE_DB.keys()), key=str.lower)
     target_edit_item = st.selectbox("Select Ingredient to Re-calibrate:", all_sorted_options)
     
     if target_edit_item:
-        st.markdown(f"### 🛠️ Tuning Dashboard for: **{target_edit_item}**")
+        st.markdown("---")
         current_profile = ACTIVE_DB[target_edit_item]
         
-        # Deploy editing sliders mapped to your original 0-400 matrix limits
+        # NEW FEATURE: EDITABLE NAME OVERRIDE TEXT STRIP
+        st.subheader("✏️ Identity Calibration")
+        new_name_input = st.text_input("Modify Ingredient Name Field:", value=target_edit_item)
+        
+        st.subheader("🎚️ Flavor Frequency Calibration")
         new_salty = st.slider("Salty Rating", 0, 450, int(current_profile.get("salty", 0)))
         new_sour = st.slider("Sour Rating", 0, 450, int(current_profile.get("sour", 0)))
         new_sweet = st.slider("Sweet Rating", 0, 450, int(current_profile.get("sweet", 0)))
@@ -174,21 +176,30 @@ with tab3:
         new_bitter = st.slider("Bitter Rating", 0, 450, int(current_profile.get("bitter", 0)))
         new_spicy = st.slider("Spicy Rating", 0, 450, int(current_profile.get("spicy", 0)))
         
-        col_save, col_del = st.columns([1, 1])
+        col_save, col_del = st.columns(2)
         with col_save:
             if st.button("💾 Permanently Override & Calibrate"):
                 updated_values = {
                     "salty": new_salty, "sour": new_sour, "sweet": new_sweet,
                     "umami": new_umami, "bitter": new_bitter, "spicy": new_spicy
                 }
-                # Insert the correction straight into your data configuration index
-                st.session_state.custom_db[target_edit_item] = updated_values
+                
+                # If name changed, copy numbers to new name slot, then delete the old one
+                if new_name_input != target_edit_item:
+                    st.session_state.custom_db[new_name_input] = updated_values
+                    # If editing an old custom item, purge its old label
+                    if target_edit_item in st.session_state.custom_db:
+                        del st.session_state.custom_db[target_edit_item]
+                    st.success(f"Renamed and re-calibrated item to '{new_name_input}'!")
+                else:
+                    # Regular value calibration override
+                    st.session_state.custom_db[target_edit_item] = updated_values
+                    st.success(f"Successfully re-calibrated profiles for '{target_edit_item}'!")
+                
                 save_permanent_library(st.session_state.custom_db)
-                st.success(f"Successfully re-calibrated and locked flavor adjustments for '{target_edit_item}'!")
                 st.rerun()
                 
         with col_del:
-            # Only allow deletions for items that aren't factory locked in database.py
             if target_edit_item in st.session_state.custom_db:
                 if st.button("🗑️ Completely Delete from Library"):
                     del st.session_state.custom_db[target_edit_item]
