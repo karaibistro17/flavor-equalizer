@@ -25,8 +25,9 @@ with tab1:
     # Live metric tracking your bulk scale growth
     st.sidebar.metric(label="Library Active Capacity", value=f"{len(ACTIVE_DB)} Items")
     
-    st.subheader("📋 Recipe Input Strips")
-    sorted_options = sorted(list(ACTIVE_DB.keys()))
+        st.subheader("📋 Recipe Input Strips")
+    # Forces a true lowercase alphabetical sort so AI items don't sit at the bottom
+    sorted_options = sorted(list(ACTIVE_DB.keys()), key=str.lower)
     recipe_rows = []
     
     for i in range(1, 16): # 15 dynamic input rows for space efficiency
