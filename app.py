@@ -220,3 +220,53 @@ with tab3:
     target_edit_item = st.selectbox("Select Ingredient to Re-calibrate:", all_sorted_options, key="calibration_dropdown")
     
     if target_edit_item:
+        st.markdown("---")
+        current_profile = ACTIVE_DB[target_edit_item]
+        
+        st.subheader("✏️ Identity Calibration")
+        new_name_input = st.text_input("Modify Ingredient Name Field:", value=target_edit_item, key=f"name_edit_{target_edit_item}")
+        
+        st.subheader("🎚️ Flavor Frequency Calibration")
+        
+        # Protected integer checks prevent background float data type errors
+        c_salt = int(round(current_profile.get("salty", 0)))
+        c_sour = int(round(current_profile.get("sour", 0)))
+        c_sweet = int(round(current_profile.get("sweet", 0)))
+        c_umami = int(round(current_profile.get("umami", 0)))
+        c_bitter = int(round(current_profile.get("bitter", 0)))
+        c_spicy = int(round(current_profile.get("spicy", 0)))
+        
+        new_salty = st.slider("Salty Rating", 0, 450, c_salt, key=f"salt_sl_{target_edit_item}")
+        new_sour = st.slider("Sour Rating", 0, 450, c_sour, key=f"sour_sl_{target_edit_item}")
+        new_sweet = st.slider("Sweet Rating", 0, 450, c_sweet, key=f"sweet_sl_{target_edit_item}")
+        new_umami = st.slider("Umami Rating", 0, 450, c_umami, key=f"umami_sl_{target_edit_item}")
+        new_bitter = st.slider("Bitter Rating", 0, 450, c_bitter, key=f"bitter_sl_{target_edit_item}")
+        new_spicy = st.slider("Spicy Rating", 0, 450, c_spicy, key=f"spicy_sl_{target_edit_item}")
+        
+        col_save, col_del = st.columns(2)
+        with col_save:
+            if st.button("💾 Permanently Override & Calibrate", key="btn_save_calibration"):
+                updated_values = {
+                    "salty": new_salty, "sour": new_sour, "sweet": new_sweet,
+                    "umami": new_umami, "bitter": new_bitter, "spicy": new_spicy
+                }
+                
+                if new_name_input != target_edit_item:
+                    st.session_state.custom_db[new_name_input] = updated_values
+                    if target_edit_item in st.session_state.custom_db:
+                        del st.session_state.custom_db[target_edit_item]
+                    st.success(f"Renamed and re-calibrated item to '{new_name_input}'!")
+                else:
+                    st.session_state.custom_db[target_edit_item] = updated_values
+                    st.success(f"Successfully re-calibrated profiles for '{target_edit_item}'!")
+                
+                save_permanent_library(st.session_state.custom_db)
+                st.rerun()
+                
+        with col_del:
+            if target_edit_item in st.session_state.custom_db:
+                if st.button("🗑️ Completely Delete from Library", key="btn_delete_calibration"):
+                    del st.session_state.custom_db[target_edit_item]
+                    save_permanent_library(st.session_state.custom_db)
+                    st.toast(f"Purged {target_edit_item} from custom storage channels.")
+                    st.rerun()
