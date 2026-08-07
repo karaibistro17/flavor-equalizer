@@ -2,19 +2,41 @@
 import streamlit as st
 import matplotlib.pyplot as plt
 import json
+import os
 from database import INGREDIENT_DB
 
 st.set_page_config(page_title="Universal Taste Mixer Console", layout="centered")
 
-# 1. INITIALIZE ENGINE CACHING AND STATES
-if "custom_db" not in st.session_state:
-    st.session_state.custom_db = {}
+STORAGE_FILE = "custom_storage.json"
 
-# Track our temporary scan preview so it doesn't vanish on script reruns
+# --- LOCAL FILE AUTO-SAVE ENGINE ---
+def load_permanent_library():
+    """Reads the local JSON file to pull permanently saved ingredients."""
+    if os.path.exists(STORAGE_FILE):
+        try:
+            with open(STORAGE_FILE, "r") as f:
+                return json.load(f)
+        except Exception:
+            return {}
+    return {}
+
+def save_permanent_library(data):
+    """Writes custom ingredients permanently to the local directory file."""
+    try:
+        with open(STORAGE_FILE, "w") as f:
+            json.dump(data, f, indent=4)
+        return True
+    except Exception:
+        return False
+
+# Initialize custom database from local long-term storage file
+if "custom_db" not in st.session_state:
+    st.session_state.custom_db = load_permanent_library()
+
 if "temp_scan" not in st.session_state:
     st.session_state.temp_scan = None
 
-# Merge base files with active custom additions
+# Merge base components with long-term custom additions
 ACTIVE_DB = {**INGREDIENT_DB, **st.session_state.custom_db}
 
 tab1, tab2 = st.tabs(["🎛️ Flavor Equalizer Deck", "🧬 AI Database Manager"])
@@ -85,21 +107,19 @@ with tab1:
     st.pyplot(fig)
 
 # ==========================================
-# TAB 2: AI DATABASE TERMINAL (SCAN, SAVE, DELETE)
+# TAB 2: AI DATABASE TERMINAL (SCAN, PERMANENT SAVE, DELETE)
 # ==========================================
 with tab2:
     st.title("🧬 AI Molecular Database Terminal")
-    st.write("Scan new components, review chemical compositions, and manage your active custom library.")
+    st.write("Scan new components, review chemical compositions, and manage your permanent custom library.")
     
-    # --- PHASE 1: THE SCANNER & INFERENCE WORKSPACE ---
     st.subheader("🔬 Component Analysis Scanner")
-    new_ing_name = st.text_input("Enter New Ingredient Name (e.g., 'Fermented Bamboo Shoots', 'XO Sauce')", placeholder="Type item here...")
+    new_ing_name = st.text_input("Enter New Ingredient Name", placeholder="Type item here...")
     
     if st.button("💻 Execute Chemical Analysis"):
         if new_ing_name:
             with st.spinner("Processing molecular data structure..."):
                 name_lower = new_ing_name.lower()
-                # Hardcoded chemical inferencing structure matching your 0-400 base rules
                 computed_profile = {"salty": 0, "sour": 0, "sweet": 5, "umami": 10, "bitter": 2, "spicy": 0}
                 
                 if "fermented" in name_lower or "miso" in name_lower or "sauce" in name_lower:
@@ -116,43 +136,47 @@ with tab2:
                 if "sweet" in name_lower or "honey" in name_lower or "syrup" in name_lower:
                     computed_profile["sweet"] += 300
                 
-                # Cache the results temporarily on the screen for your review
                 st.session_state.temp_scan = {"name": new_ing_name, "profile": computed_profile}
         else:
             st.warning("Please input an item name before executing a scan.")
 
-    # --- PHASE 2: THE INTERACTIVE SAVE PROMPT ---
     if st.session_state.temp_scan:
         st.info(f"🧬 **Analysis Complete for:** {st.session_state.temp_scan['name']}")
         st.write(st.session_state.temp_scan['profile'])
         
-        # Isolated secondary action button to permanently store item
-        if st.button("💾 Save Item to Library"):
+        if st.button("💾 Save Permanently to Library"):
             save_name = f"{st.session_state.temp_scan['name']} (AI Scanned)"
+            
+            # 1. Update session memory
             st.session_state.custom_db[save_name] = st.session_state.temp_scan['profile']
-            st.success(f"Successfully integrated '{save_name}' into your active database indexes!")
-            # Wipe temporary workspace clean once saved successfully
+            
+            # 2. Write to long-term storage file
+            if save_permanent_library(st.session_state.custom_db):
+                st.success(f"Permanently locked '{save_name}' into database storage files!")
+            else:
+                st.error("File storage locked. Saved temporarily to session cache instead.")
+                
             st.session_state.temp_scan = None
             st.rerun()
 
     st.markdown("---")
 
-    # --- PHASE 3: THE LIBRARY MANAGEMENT CONTROL CENTER (DELETE SYSTEM) ---
     st.subheader("🗑️ Library Management Console")
     
     if st.session_state.custom_db:
-        st.write("Review or delete items you have added via the AI Molecular Scanner:")
+        st.write("Review or delete permanently stored custom ingredients:")
         
-        # Loop through active custom additions to create an interactive deletion row deck
         for custom_item in list(st.session_state.custom_db.keys()):
             col_name, col_del = st.columns([4, 1])
             with col_name:
                 st.text(f"🔸 {custom_item}")
             with col_del:
-                # Unique button key tracking prevents cross-trigger conflicts during loops
                 if st.button("Delete", key=f"del_{custom_item}"):
+                    # 1. Delete from running dictionary
                     del st.session_state.custom_db[custom_item]
-                    st.toast(f"Purged {custom_item} from custom storage slots.")
+                    # 2. Re-write the file to save the deletion
+                    save_permanent_library(st.session_state.custom_db)
+                    st.toast(f"Purged {custom_item} from permanent database storage.")
                     st.rerun()
     else:
-        st.caption("Your custom library slot tracking arrays are currently clear. Base elements inside 'database.py' remain factory-locked.")
+        st.caption("Your permanent storage profiles are empty. Base records inside 'database.py' remain factory-locked.")
