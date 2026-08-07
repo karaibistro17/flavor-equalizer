@@ -17,7 +17,7 @@ sorted_ingredients = sorted(list(INGREDIENT_DB.keys()))
 recipe_rows = []
 
 for i in range(1, 26):
-    col1, col2 = st.columns()
+    col1, col2 = st.columns(2)
     with col1:
         item = st.selectbox(f"CH {i:02d}", ["-- Open Matrix Field --"] + sorted_ingredients, key=f"item_{i}")
     with col2:
