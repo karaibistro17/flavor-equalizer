@@ -1,6 +1,7 @@
 # app.py
 import streamlit as st
 import matplotlib.pyplot as plt
+import numpy as np
 import json
 import os
 from database import INGREDIENT_DB
@@ -27,27 +28,73 @@ def save_permanent_library(data):
     except Exception:
         return False
 
-# Initialize custom database from local storage
+# Initialize database session states
 if "custom_db" not in st.session_state:
     st.session_state.custom_db = load_permanent_library()
 
 if "temp_scan" not in st.session_state:
     st.session_state.temp_scan = None
 
-# Merge base files with custom profiles/overrides
+if "target_profile" not in st.session_state:
+    st.session_state.target_profile = None
+
+if "target_name" not in st.session_state:
+    st.session_state.target_name = ""
+
 ACTIVE_DB = {**INGREDIENT_DB, **st.session_state.custom_db}
 
 tab1, tab2, tab3 = st.tabs(["🎛️ Flavor Equalizer Deck", "🧬 AI Database Manager", "⚙️ Library Override & Calibration"])
 
 # ==========================================
-# TAB 1: THE EQUALIZER CONSOLE & COOKING ENGINE
+# TAB 1: THE EQUALIZER CONSOLE & TARGET ENGINE
 # ==========================================
 with tab1:
     st.title("🎛️ Culinary Matrix Mixing Deck")
-    st.write("Formulate recipes and calculate chemical taste shifts across variables.")
+    st.write("Formulate recipes and match your active codes against target style benchmarks.")
     
     st.sidebar.metric(label="Library Active Capacity", value=f"{len(ACTIVE_DB)} Items")
     
+    # NEW FEATURE BLOCK: DYNAMIC BENCHMARK GRAPH GENERATOR
+    st.markdown("### 🎯 Benchmark Alignment Target")
+    target_input = st.text_input("Type a target dish to match (e.g., 'Tokyo Shoyu Ramen', 'Sweet Thai Chili', 'Spicy Tonkotsu'):", 
+                                 value=st.session_state.target_name, placeholder="Type profile target name...")
+    
+    if st.button("📈 Auto-Generate Target Benchmark Curve"):
+        if target_input:
+            t_lower = target_input.lower()
+            # Advanced inference array matching target parameters to your 0-1000 scale rules
+            profile = {"Salty": 500, "Sour": 100, "Sweet": 100, "Umami": 600, "Bitter": 50, "Spicy": 0}
+            
+            if "shoyu" in t_lower:
+                profile = {"Salty": 750, "Sour": 150, "Sweet": 120, "Umami": 850, "Bitter": 80, "Spicy": 0}
+            elif "miso" in t_lower:
+                profile = {"Salty": 700, "Sour": 100, "Sweet": 180, "Umami": 900, "Bitter": 140, "Spicy": 100}
+            elif "tonkotsu" in t_lower:
+                profile = {"Salty": 650, "Sour": 50, "Sweet": 80, "Umami": 950, "Bitter": 60, "Spicy": 0}
+            elif "shio" in t_lower:
+                profile = {"Salty": 800, "Sour": 80, "Sweet": 50, "Umami": 750, "Bitter": 40, "Spicy": 0}
+            elif "chili" in t_lower or "spicy" in t_lower:
+                profile["Spicy"] = 750
+                profile["Sweet"] += 250
+            elif "sour" in t_lower or "thai" in t_lower or "mop" in t_lower:
+                profile["Sour"] = 650
+                profile["Sweet"] += 150
+                
+            st.session_state.target_profile = profile
+            st.session_state.target_name = target_input
+            st.success(f"Benchmark trace curve locked for: '{target_input}'")
+        else:
+            st.session_state.target_profile = None
+            st.session_state.target_name = ""
+            
+    if st.session_state.target_profile:
+        st.caption(f"🎯 Currently matching recipe build against: **{st.session_state.target_name}**")
+        if st.button("❌ Clear Target Curve"):
+            st.session_state.target_profile = None
+            st.session_state.target_name = ""
+            st.rerun()
+
+    st.markdown("---")
     st.subheader("📋 Recipe Input Strips")
     sorted_options = sorted(list(ACTIVE_DB.keys()), key=str.lower)
     recipe_rows = []
@@ -64,6 +111,7 @@ with tab1:
         if item != "-- Clear Matrix Link --" and amount > 0:
             recipe_rows.append({"name": item, "amount": amount, "cooked": is_cooked})
 
+    # MIXING CALCULATION LOOPS
     totals = {"Salty": 0, "Sour": 0, "Sweet": 0, "Umami": 0, "Bitter": 0, "Spicy": 0}
     
     for row in recipe_rows:
@@ -86,22 +134,43 @@ with tab1:
     for taste in totals:
         totals[taste] = int((totals[taste] / max_val) * 1000)
 
+    # OUTPUT MULTI-LAYER DISPLAY GRAPH
     st.subheader("📊 Calibrated Final Equalizer Display")
     tastes = list(totals.keys())
     values = list(totals.values())
     colors = ['#3498db', '#f1c40f', '#e74c3c', '#2ecc71', '#9b59b6', '#e67e22']
     
-    fig, ax = plt.subplots(figsize=(8, 3.8), facecolor='#1e1e1e')
+    fig, ax = plt.subplots(figsize=(8, 4.2), facecolor='#1e1e1e')
     ax.set_facecolor('#121212')
-    bars = plt.bar(tastes, values, color=colors, width=0.55, edgecolor='white', linewidth=0.5)
-    plt.ylim(0, 1150)
+    
+    # Render active recipe values as solid bar matrix columns
+    x_positions = np.arange(len(tastes))
+    bars = plt.bar(x_positions, values, color=colors, width=0.55, edgecolor='white', linewidth=0.5, label='Your Current Build', zorder=2)
+    
+    # NEW ELEMENT: RENDER OVERLAY LINE TARGET PROFILE IF LOCKED BY USER
+    if st.session_state.target_profile:
+        target_values = [st.session_state.target_profile[t] for t in tastes]
+        # Overlay line tracking representing target benchmark profile points
+        plt.plot(x_positions, target_values, color='#ff4757', linestyle='--', marker='o', markersize=6, 
+                 linewidth=2, label=f"Target: {st.session_state.target_name}", zorder=3)
+        plt.legend(facecolor='#1e1e1e', labelcolor='white', framealpha=0.8, loc='upper right')
+
+    plt.ylim(0, 1190)
+    plt.xticks(x_positions, tastes)
     plt.grid(axis='y', linestyle='--', alpha=0.15, color='white')
     ax.tick_params(colors='white', labelsize=10)
     for spine in ax.spines.values():
         spine.set_color('#333333')
-    for bar in bars:
+        
+    for idx, bar in enumerate(bars):
         yval = bar.get_height()
-        plt.text(bar.get_x() + bar.get_width()/2.0, yval + 25, f'{yval}', ha='center', va='bottom', color='white', fontweight='bold', fontsize=9)
+        display_text = f'{yval}'
+        if st.session_state.target_profile:
+            t_val = st.session_state.target_profile[tastes[idx]]
+            diff = yval - t_val
+            display_text += f" ({'+' if diff >= 0 else ''}{diff})"
+        plt.text(bar.get_x() + bar.get_width()/2.0, yval + 25, display_text, ha='center', va='bottom', color='white', fontweight='bold', fontsize=8)
+        
     st.pyplot(fig)
 
 # ==========================================
@@ -112,7 +181,7 @@ with tab2:
     st.write("Scan new components and review chemical compositions.")
     
     st.subheader("🔬 Component Analysis Scanner")
-    new_ing_name = st.text_input("Enter New Ingredient Name", placeholder="Type item here...")
+    new_ing_name = st.text_input("Enter New Ingredient Name", placeholder="Type item here...", key="scan_input")
     
     if st.button("💻 Execute Chemical Analysis"):
         if new_ing_name:
@@ -150,59 +219,3 @@ with tab2:
             st.session_state.temp_scan = None
             st.rerun()
 
-# ==========================================
-# TAB 3: THE CALIBRATION & OVERRIDE PANEL (WITH EDITABLE NAME)
-# ==========================================
-with tab3:
-    st.title("⚙️ Database Calibration Panel")
-    st.write("Tweak, rename, or overwrite flavor profile values for any item in your library.")
-    
-    all_sorted_options = sorted(list(ACTIVE_DB.keys()), key=str.lower)
-    target_edit_item = st.selectbox("Select Ingredient to Re-calibrate:", all_sorted_options)
-    
-    if target_edit_item:
-        st.markdown("---")
-        current_profile = ACTIVE_DB[target_edit_item]
-        
-        # NEW FEATURE: EDITABLE NAME OVERRIDE TEXT STRIP
-        st.subheader("✏️ Identity Calibration")
-        new_name_input = st.text_input("Modify Ingredient Name Field:", value=target_edit_item)
-        
-        st.subheader("🎚️ Flavor Frequency Calibration")
-        new_salty = st.slider("Salty Rating", 0, 450, int(current_profile.get("salty", 0)))
-        new_sour = st.slider("Sour Rating", 0, 450, int(current_profile.get("sour", 0)))
-        new_sweet = st.slider("Sweet Rating", 0, 450, int(current_profile.get("sweet", 0)))
-        new_umami = st.slider("Umami Rating", 0, 450, int(current_profile.get("umami", 0)))
-        new_bitter = st.slider("Bitter Rating", 0, 450, int(current_profile.get("bitter", 0)))
-        new_spicy = st.slider("Spicy Rating", 0, 450, int(current_profile.get("spicy", 0)))
-        
-        col_save, col_del = st.columns(2)
-        with col_save:
-            if st.button("💾 Permanently Override & Calibrate"):
-                updated_values = {
-                    "salty": new_salty, "sour": new_sour, "sweet": new_sweet,
-                    "umami": new_umami, "bitter": new_bitter, "spicy": new_spicy
-                }
-                
-                # If name changed, copy numbers to new name slot, then delete the old one
-                if new_name_input != target_edit_item:
-                    st.session_state.custom_db[new_name_input] = updated_values
-                    # If editing an old custom item, purge its old label
-                    if target_edit_item in st.session_state.custom_db:
-                        del st.session_state.custom_db[target_edit_item]
-                    st.success(f"Renamed and re-calibrated item to '{new_name_input}'!")
-                else:
-                    # Regular value calibration override
-                    st.session_state.custom_db[target_edit_item] = updated_values
-                    st.success(f"Successfully re-calibrated profiles for '{target_edit_item}'!")
-                
-                save_permanent_library(st.session_state.custom_db)
-                st.rerun()
-                
-        with col_del:
-            if target_edit_item in st.session_state.custom_db:
-                if st.button("🗑️ Completely Delete from Library"):
-                    del st.session_state.custom_db[target_edit_item]
-                    save_permanent_library(st.session_state.custom_db)
-                    st.toast(f"Purged {target_edit_item} from custom storage channels.")
-                    st.rerun()
