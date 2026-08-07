@@ -55,7 +55,6 @@ with tab1:
     st.sidebar.metric(label="Library Active Capacity", value=f"{len(ACTIVE_DB)} Items")
     
     st.markdown("### 🎯 Benchmark Alignment Target")
-    # Added explicit unique key "target_input_field" to isolate Tab 1 inputs
     target_input = st.text_input("Type a target dish to match (e.g., 'Tokyo Shoyu Ramen', 'Spicy Tonkotsu'):", 
                                  value=st.session_state.target_name, placeholder="Type profile target name...", key="target_input_field")
     
@@ -172,7 +171,6 @@ with tab2:
     st.write("Scan new components and review chemical compositions.")
     
     st.subheader("🔬 Component Analysis Scanner")
-    # Added explicit unique key "ai_scan_input_field" to isolate Tab 2 text entries
     new_ing_name = st.text_input("Enter New Ingredient Name", placeholder="Type item here...", key="ai_scan_input_field")
     
     if st.button("💻 Execute Chemical Analysis", key="btn_run_scan"):
@@ -218,3 +216,7 @@ with tab3:
     st.title("⚙️ Database Calibration Panel")
     st.write("Tweak, rename, or overwrite flavor profile values for any item in your library.")
     
+    all_sorted_options = sorted(list(ACTIVE_DB.keys()), key=str.lower)
+    target_edit_item = st.selectbox("Select Ingredient to Re-calibrate:", all_sorted_options, key="calibration_dropdown")
+    
+    if target_edit_item:
