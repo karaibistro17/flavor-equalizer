@@ -9,9 +9,9 @@ st.set_page_config(page_title="Universal Taste Mixer Console", layout="centered"
 
 STORAGE_FILE = "custom_storage.json"
 
-# --- LOCAL FILE AUTO-SAVE ENGINE ---
+# --- LOCAL FILE STORAGE ENGINE ---
 def load_permanent_library():
-    """Reads the local JSON file to pull permanently saved ingredients."""
+    """Reads the local JSON file to pull permanently saved ingredients and overrides."""
     if os.path.exists(STORAGE_FILE):
         try:
             with open(STORAGE_FILE, "r") as f:
@@ -21,7 +21,7 @@ def load_permanent_library():
     return {}
 
 def save_permanent_library(data):
-    """Writes custom ingredients permanently to the local directory file."""
+    """Writes custom ingredients and overrides permanently to the local directory file."""
     try:
         with open(STORAGE_FILE, "w") as f:
             json.dump(data, f, indent=4)
@@ -36,10 +36,10 @@ if "custom_db" not in st.session_state:
 if "temp_scan" not in st.session_state:
     st.session_state.temp_scan = None
 
-# Merge base components with long-term custom additions
+# Layered Database Resolution: Base File -> Overwritten by user edits
 ACTIVE_DB = {**INGREDIENT_DB, **st.session_state.custom_db}
 
-tab1, tab2 = st.tabs(["🎛️ Flavor Equalizer Deck", "🧬 AI Database Manager"])
+tab1, tab2, tab3 = st.tabs(["🎛️ Flavor Equalizer Deck", "🧬 AI Database Manager", "⚙️ Library Override & Calibration"])
 
 # ==========================================
 # TAB 1: THE EQUALIZER CONSOLE & COOKING ENGINE
@@ -107,11 +107,11 @@ with tab1:
     st.pyplot(fig)
 
 # ==========================================
-# TAB 2: AI DATABASE TERMINAL (SCAN, PERMANENT SAVE, DELETE)
+# TAB 2: AI DATABASE TERMINAL
 # ==========================================
 with tab2:
     st.title("🧬 AI Molecular Database Terminal")
-    st.write("Scan new components, review chemical compositions, and manage your permanent custom library.")
+    st.write("Scan new components and review chemical compositions.")
     
     st.subheader("🔬 Component Analysis Scanner")
     new_ing_name = st.text_input("Enter New Ingredient Name", placeholder="Type item here...")
@@ -122,7 +122,7 @@ with tab2:
                 name_lower = new_ing_name.lower()
                 computed_profile = {"salty": 0, "sour": 0, "sweet": 5, "umami": 10, "bitter": 2, "spicy": 0}
                 
-                if "fermented" in name_lower or "miso" in name_lower or "sauce" in name_lower:
+                if "fermented" in name_lower or "miso" in name_lower or "sauce" in name_lower or "tobanjan" in name_lower:
                     computed_profile["umami"] += 180
                     computed_profile["salty"] += 140
                 if "shoot" in name_lower or "bamboo" in name_lower or "mushroom" in name_lower:
@@ -146,37 +146,52 @@ with tab2:
         
         if st.button("💾 Save Permanently to Library"):
             save_name = f"{st.session_state.temp_scan['name']} (AI Scanned)"
-            
-            # 1. Update session memory
             st.session_state.custom_db[save_name] = st.session_state.temp_scan['profile']
-            
-            # 2. Write to long-term storage file
-            if save_permanent_library(st.session_state.custom_db):
-                st.success(f"Permanently locked '{save_name}' into database storage files!")
-            else:
-                st.error("File storage locked. Saved temporarily to session cache instead.")
-                
+            save_permanent_library(st.session_state.custom_db)
+            st.success(f"Permanently locked '{save_name}' into database storage files!")
             st.session_state.temp_scan = None
             st.rerun()
 
-    st.markdown("---")
-
-    st.subheader("🗑️ Library Management Console")
+# ==========================================
+# TAB 3: THE CALIBRATION & OVERRIDE PANEL
+# ==========================================
+with tab3:
+    st.title("⚙️ Database Calibration Panel")
+    st.write("Tweak, recalibrate, or overwrite the flavor profile values of **any** ingredient in your library.")
     
-    if st.session_state.custom_db:
-        st.write("Review or delete permanently stored custom ingredients:")
+    all_sorted_options = sorted(list(ACTIVE_DB.keys()), key=str.lower)
+    target_edit_item = st.selectbox("Select Ingredient to Re-calibrate:", all_sorted_options)
+    
+    if target_edit_item:
+        st.markdown(f"### 🛠️ Tuning Dashboard for: **{target_edit_item}**")
+        current_profile = ACTIVE_DB[target_edit_item]
         
-        for custom_item in list(st.session_state.custom_db.keys()):
-            col_name, col_del = st.columns([4, 1])
-            with col_name:
-                st.text(f"🔸 {custom_item}")
-            with col_del:
-                if st.button("Delete", key=f"del_{custom_item}"):
-                    # 1. Delete from running dictionary
-                    del st.session_state.custom_db[custom_item]
-                    # 2. Re-write the file to save the deletion
+        # Deploy editing sliders mapped to your original 0-400 matrix limits
+        new_salty = st.slider("Salty Rating", 0, 450, int(current_profile.get("salty", 0)))
+        new_sour = st.slider("Sour Rating", 0, 450, int(current_profile.get("sour", 0)))
+        new_sweet = st.slider("Sweet Rating", 0, 450, int(current_profile.get("sweet", 0)))
+        new_umami = st.slider("Umami Rating", 0, 450, int(current_profile.get("umami", 0)))
+        new_bitter = st.slider("Bitter Rating", 0, 450, int(current_profile.get("bitter", 0)))
+        new_spicy = st.slider("Spicy Rating", 0, 450, int(current_profile.get("spicy", 0)))
+        
+        col_save, col_del = st.columns([1, 1])
+        with col_save:
+            if st.button("💾 Permanently Override & Calibrate"):
+                updated_values = {
+                    "salty": new_salty, "sour": new_sour, "sweet": new_sweet,
+                    "umami": new_umami, "bitter": new_bitter, "spicy": new_spicy
+                }
+                # Insert the correction straight into your data configuration index
+                st.session_state.custom_db[target_edit_item] = updated_values
+                save_permanent_library(st.session_state.custom_db)
+                st.success(f"Successfully re-calibrated and locked flavor adjustments for '{target_edit_item}'!")
+                st.rerun()
+                
+        with col_del:
+            # Only allow deletions for items that aren't factory locked in database.py
+            if target_edit_item in st.session_state.custom_db:
+                if st.button("🗑️ Completely Delete from Library"):
+                    del st.session_state.custom_db[target_edit_item]
                     save_permanent_library(st.session_state.custom_db)
-                    st.toast(f"Purged {custom_item} from permanent database storage.")
+                    st.toast(f"Purged {target_edit_item} from custom storage channels.")
                     st.rerun()
-    else:
-        st.caption("Your permanent storage profiles are empty. Base records inside 'database.py' remain factory-locked.")
