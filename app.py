@@ -33,19 +33,32 @@ def save_permanent_library(data):
 # --- BACKGROUND MOLECULAR AI SCANNER FUNCTION ---
 def run_molecular_ai_scan(ingredient_name, token_key):
     try:
+        # Initialize client directly to the stable production host
         client = genai.Client(api_key=token_key)
-        prompt = f"Analyze taste metrics for 10g raw '{ingredient_name}'. Range: 0-450. Max context anchors: Sea Salt salty:400, Sugar sweet:380, MSG umami:450, Vinegar sour:280. Return ONLY JSON object with keys: salty, sour, sweet, umami, bitter, spicy. No markdown formatting blocks."
         
-        # MODEL FIXED: Updated to 'gemini-1.5-flash' to match the permanent production API roadmap
+        prompt = f"""
+        Analyze the culinary taste metrics for exactly 10 grams of raw '{ingredient_name}'.
+        Provide strict whole number flavor readings mapped precisely to this evaluation scale:
+        - Values must range strictly from 0 to 450 (0 = completely absent, 450 = hyper-dense pure crystalline form).
+        - High benchmarks for context: Pure Sea Salt = salty: 400. Pure White Sugar = sweet: 380. MSG = umami: 450. Pure Distilled Vinegar = sour: 280.
+        
+        Return ONLY a clean JSON object containing these exact keys: "salty", "sour", "sweet", "umami", "bitter", "spicy". Do not include markdown codeblocks or extra text.
+        """
+        
+        # MODEL CONFIGURED TO STABLE PRODUCTION ENDPOINT
         response = client.models.generate_content(
-            model='gemini-1.5-flash',
+            model='gemini-2.5-flash',
             contents=prompt,
-            config=types.GenerateContentConfig(response_mime_type="application/json")
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                temperature=0.1  # Low temperature forces strict factual chemical modeling
+            )
         )
         
         raw_text = response.text.strip().replace("```json", "").replace("```", "")
         computed_profile = json.loads(raw_text)
         
+        # Clean whole integer parsing loop to avoid float crashes
         validated_dict = {}
         for taste_key in ["salty", "sour", "sweet", "umami", "bitter", "spicy"]:
             raw_val = computed_profile.get(taste_key, 0)
@@ -211,14 +224,3 @@ with tab2:
                 scan_result = run_molecular_ai_scan(new_ing_name, api_key)
                 if scan_result:
                     st.session_state.temp_scan = {"name": new_ing_name, "profile": scan_result}
-                    st.rerun()
-        else:
-            st.warning("Please input an item name before executing a scan.")
-
-    if st.session_state.temp_scan:
-        st.info(f"🧬 **Analysis Complete for:** {st.session_state.temp_scan['name']}")
-        st.write(st.session_state.temp_scan['profile'])
-        
-        if st.button("💾 Save Permanently to Library", key="btn_save_scan"):
-            save_name = f"{st.session_state.temp_scan['name']} (AI Scanned)"
-            st.session_state.custom_db[save_name] = st.session_state.temp_scan['profile']
