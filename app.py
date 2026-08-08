@@ -36,9 +36,9 @@ def run_molecular_ai_scan(ingredient_name, token_key):
         client = genai.Client(api_key=token_key)
         prompt = f"Analyze taste metrics for 10g raw '{ingredient_name}'. Range: 0-450. Max context anchors: Sea Salt salty:400, Sugar sweet:380, MSG umami:450, Vinegar sour:280. Return ONLY JSON object with keys: salty, sour, sweet, umami, bitter, spicy. No markdown formatting blocks."
         
-        # MODEL FIXED: Swapped to 'gemini-1.5-flash' for universal production availability
+        # MODEL FIXED: Updated to 'gemini-2.5-flash' to perfectly align with the new google-genai SDK requirements
         response = client.models.generate_content(
-            model='gemini-1.5-flash',
+            model='gemini-2.5-flash',
             contents=prompt,
             config=types.GenerateContentConfig(response_mime_type="application/json")
         )
@@ -222,4 +222,3 @@ with tab2:
         if st.button("💾 Save Permanently to Library", key="btn_save_scan"):
             save_name = f"{st.session_state.temp_scan['name']} (AI Scanned)"
             st.session_state.custom_db[save_name] = st.session_state.temp_scan['profile']
-            save_permanent_library(st.session_state.custom_db)
