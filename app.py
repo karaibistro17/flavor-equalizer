@@ -30,7 +30,7 @@ def save_permanent_library(data):
     except Exception:
         return False
 
-# --- ISOLATED BACKGROUND AI SCANNED ENGINE BLOCK ---
+# --- BACKGROUND MOLECULAR AI SCANNER FUNCTION ---
 def run_molecular_ai_scan(ingredient_name, token_key):
     try:
         client = genai.Client(api_key=token_key)
@@ -55,7 +55,7 @@ def run_molecular_ai_scan(ingredient_name, token_key):
         st.error(f"Inference pipeline bottleneck: {network_error}")
         return None
 
-# Initialize database session states cleanly
+# Initialize database states
 if "custom_db" not in st.session_state:
     st.session_state.custom_db = load_permanent_library()
 
@@ -222,3 +222,4 @@ with tab2:
             save_name = f"{st.session_state.temp_scan['name']} (AI Scanned)"
             st.session_state.custom_db[save_name] = st.session_state.temp_scan['profile']
             save_permanent_library(st.session_state.custom_db)
+            st.success(f"Permanently locked '{save_name}' into database storage files!")
