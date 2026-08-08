@@ -30,7 +30,7 @@ def save_permanent_library(data):
     except Exception:
         return False
 
-# Initialize database session states
+# Initialize database session states cleanly
 if "custom_db" not in st.session_state:
     st.session_state.custom_db = load_permanent_library()
 
@@ -166,7 +166,7 @@ with tab1:
     st.pyplot(fig)
 
 # ==========================================
-# TAB 2: LIVE AI DATABASE TERMINAL (REAL AI CONNECT)
+# TAB 2: LIVE AI DATABASE TERMINAL
 # ==========================================
 with tab2:
     st.title("🧬 AI Molecular Database Terminal")
@@ -176,7 +176,6 @@ with tab2:
     new_ing_name = st.text_input("Enter New Ingredient Name", placeholder="Type item here...", key="ai_scan_input_field")
     
     if st.button("💻 Execute Chemical Analysis", key="btn_run_scan"):
-        # Pull secret token API key safely from the Streamlit Cloud dashboard env dashboard
         api_key = st.secrets.get("GEMINI_API_KEY") or os.environ.get("GEMINI_API_KEY")
         
         if not api_key:
@@ -194,7 +193,6 @@ with tab2:
         elif new_ing_name:
             with st.spinner("Streaming data profiles from live molecular food chemistry indexes..."):
                 try:
-                    # Initialize communication channel with official client tools
                     client = genai.Client(api_key=api_key)
                     
                     prompt = f"""
@@ -206,11 +204,15 @@ with tab2:
                     Return ONLY a clean JSON object containing these exact keys: "salty", "sour", "sweet", "umami", "bitter", "spicy". Do not include markdown codeblocks or extra text.
                     """
                     
-                    # Call standard lightweight fast analytical inference models
                     response = client.models.generate_content(
                         model='gemini-2.5-flash',
                         contents=prompt,
                         config=types.GenerateContentConfig(response_mime_type="application/json")
                     )
                     
-                    # Clean out formatting blocks and parse variables cleanly
+                    raw_text = response.text.strip().replace("```json", "").replace("```", "")
+                    computed_profile = json.loads(raw_text)
+                    
+                    for k in computed_profile:
+                        computed_profile[k] = int(round(float(computed_profile[k])))
+                        
