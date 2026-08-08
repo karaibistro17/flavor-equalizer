@@ -46,7 +46,6 @@ def run_molecular_ai_scan(ingredient_name, token_key):
         raw_text = response.text.strip().replace("```json", "").replace("```", "")
         computed_profile = json.loads(raw_text)
         
-        # Clean whole integer compliance loop to lock out slider decimals
         validated_dict = {}
         for taste_key in ["salty", "sour", "sweet", "umami", "bitter", "spicy"]:
             raw_val = computed_profile.get(taste_key, 0)
@@ -193,7 +192,7 @@ with tab1:
     st.pyplot(fig)
 
 # ==========================================
-# TAB 2: LIVE AI DATABASE TERMINAL (SECURE CODEWAYS)
+# TAB 2: LIVE AI DATABASE TERMINAL
 # ==========================================
 with tab2:
     st.title("🧬 AI Molecular Database Terminal")
@@ -207,18 +206,19 @@ with tab2:
         
         if not api_key:
             st.error("🔑 **API Key Connection Error:** Missing access token sequence inside your dashboard configuration environment.")
-            st.markdown("""
-            ### How to link your free API key:
-            1. Go to your **Streamlit Cloud Dashboard**.
-            2. Click on the **three dots (...)** next to your app name and select **Settings**.
-            3. Go to the **Secrets** text console.
-            4. Paste this exact configuration inside the block and click Save:
-               ```text
-               GEMINI_API_KEY = "your_actual_free_api_key_here"
-               ```
-            """)
         elif new_ing_name:
             with st.spinner("Streaming data profiles from live molecular food chemistry indexes..."):
-                # Safe operational call channeled through the background function layer
                 scan_result = run_molecular_ai_scan(new_ing_name, api_key)
                 if scan_result:
+                    st.session_state.temp_scan = {"name": new_ing_name, "profile": scan_result}
+                    st.rerun()
+        else:
+            st.warning("Please input an item name before executing a scan.")
+
+    if st.session_state.temp_scan:
+        st.info(f"🧬 **Analysis Complete for:** {st.session_state.temp_scan['name']}")
+        st.write(st.session_state.temp_scan['profile'])
+        
+        if st.button("💾 Save Permanently to Library", key="btn_save_scan"):
+            save_name = f"{st.session_state.temp_scan['name']} (AI Scanned)"
+            st.session_state.custom_db[save_name] = st.session_state.temp_scan['profile']
