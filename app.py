@@ -36,9 +36,9 @@ def run_molecular_ai_scan(ingredient_name, token_key):
         client = genai.Client(api_key=token_key)
         prompt = f"Analyze taste metrics for 10g raw '{ingredient_name}'. Range: 0-450. Max context anchors: Sea Salt salty:400, Sugar sweet:380, MSG umami:450, Vinegar sour:280. Return ONLY JSON object with keys: salty, sour, sweet, umami, bitter, spicy. No markdown formatting blocks."
         
-        # MODEL FIXED: Updated to 'gemini-2.0-flash' to match the permanent production API roadmap
+        # MODEL FIXED: Updated to 'gemini-1.5-flash' to match the permanent production API roadmap
         response = client.models.generate_content(
-            model='gemini-2.0-flash',
+            model='gemini-1.5-flash',
             contents=prompt,
             config=types.GenerateContentConfig(response_mime_type="application/json")
         )
