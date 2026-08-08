@@ -32,7 +32,6 @@ def save_permanent_library(data):
 
 # --- ISOLATED BACKGROUND AI SCANNED ENGINE BLOCK ---
 def run_molecular_ai_scan(ingredient_name, token_key):
-    """Executes live chemical data mining completely decoupled from the UI loops to prevent syntax errors."""
     try:
         client = genai.Client(api_key=token_key)
         prompt = f"Analyze taste metrics for 10g raw '{ingredient_name}'. Range: 0-450. Max context anchors: Sea Salt salty:400, Sugar sweet:380, MSG umami:450, Vinegar sour:280. Return ONLY JSON object with keys: salty, sour, sweet, umami, bitter, spicy. No markdown formatting blocks."
@@ -222,3 +221,4 @@ with tab2:
         if st.button("💾 Save Permanently to Library", key="btn_save_scan"):
             save_name = f"{st.session_state.temp_scan['name']} (AI Scanned)"
             st.session_state.custom_db[save_name] = st.session_state.temp_scan['profile']
+            save_permanent_library(st.session_state.custom_db)
