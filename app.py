@@ -5,6 +5,8 @@ import numpy as np
 import json
 import os
 from database import INGREDIENT_DB
+from google import genai
+from google.genai import types
 
 st.set_page_config(page_title="Universal Taste Mixer Console", layout="centered")
 
@@ -28,7 +30,7 @@ def save_permanent_library(data):
     except Exception:
         return False
 
-# Initialize database session states cleanly with individual, unique tags
+# Initialize database session states
 if "custom_db" not in st.session_state:
     st.session_state.custom_db = load_permanent_library()
 
@@ -164,109 +166,51 @@ with tab1:
     st.pyplot(fig)
 
 # ==========================================
-# TAB 2: AI DATABASE TERMINAL
+# TAB 2: LIVE AI DATABASE TERMINAL (REAL AI CONNECT)
 # ==========================================
 with tab2:
     st.title("🧬 AI Molecular Database Terminal")
-    st.write("Scan new components and review chemical compositions.")
+    st.write("Scan new components using live chemical food data analysis networks.")
     
     st.subheader("🔬 Component Analysis Scanner")
     new_ing_name = st.text_input("Enter New Ingredient Name", placeholder="Type item here...", key="ai_scan_input_field")
     
     if st.button("💻 Execute Chemical Analysis", key="btn_run_scan"):
-        if new_ing_name:
-            with st.spinner("Processing molecular data structure..."):
-                name_lower = new_ing_name.lower()
-                computed_profile = {"salty": 0, "sour": 0, "sweet": 5, "umami": 10, "bitter": 2, "spicy": 0}
-                
-                if "fermented" in name_lower or "miso" in name_lower or "sauce" in name_lower or "tobanjan" in name_lower:
-                    computed_profile["umami"] += 180
-                    computed_profile["salty"] += 140
-                if "shoot" in name_lower or "bamboo" in name_lower or "mushroom" in name_lower:
-                    computed_profile["umami"] += 80
-                    computed_profile["bitter"] += 15
-                if "vinegar" in name_lower or "pickle" in name_lower or "sour" in name_lower:
-                    computed_profile["sour"] += 220
-                if "chili" in name_lower or "spicy" in name_lower or "paste" in name_lower:
-                    computed_profile["spicy"] += 200
-                    computed_profile["bitter"] += 10
-                if "sweet" in name_lower or "honey" in name_lower or "syrup" in name_lower:
-                    computed_profile["sweet"] += 300
-                
-                st.session_state.temp_scan = {"name": new_ing_name, "profile": computed_profile}
-        else:
-            st.warning("Please input an item name before executing a scan.")
-
-    if st.session_state.temp_scan:
-        st.info(f"🧬 **Analysis Complete for:** {st.session_state.temp_scan['name']}")
-        st.write(st.session_state.temp_scan['profile'])
+        # Pull secret token API key safely from the Streamlit Cloud dashboard env dashboard
+        api_key = st.secrets.get("GEMINI_API_KEY") or os.environ.get("GEMINI_API_KEY")
         
-        if st.button("💾 Save Permanently to Library", key="btn_save_scan"):
-            save_name = f"{st.session_state.temp_scan['name']} (AI Scanned)"
-            st.session_state.custom_db[save_name] = st.session_state.temp_scan['profile']
-            save_permanent_library(st.session_state.custom_db)
-            st.success(f"Permanently locked '{save_name}' into database storage files!")
-            st.session_state.temp_scan = None
-            st.rerun()
-
-# ==========================================
-# TAB 3: THE CALIBRATION & OVERRIDE PANEL
-# ==========================================
-with tab3:
-    st.title("⚙️ Database Calibration Panel")
-    st.write("Tweak, rename, or overwrite flavor profile values for any item in your library.")
-    
-    all_sorted_options = sorted(list(ACTIVE_DB.keys()), key=str.lower)
-    target_edit_item = st.selectbox("Select Ingredient to Re-calibrate:", all_sorted_options, key="calibration_dropdown")
-    
-    if target_edit_item:
-        st.markdown("---")
-        current_profile = ACTIVE_DB[target_edit_item]
-        
-        st.subheader("✏️ Identity Calibration")
-        new_name_input = st.text_input("Modify Ingredient Name Field:", value=target_edit_item, key=f"name_edit_{target_edit_item}")
-        
-        st.subheader("🎚️ Flavor Frequency Calibration")
-        
-        # Protected integer checks prevent background float data type errors
-        c_salt = int(round(current_profile.get("salty", 0)))
-        c_sour = int(round(current_profile.get("sour", 0)))
-        c_sweet = int(round(current_profile.get("sweet", 0)))
-        c_umami = int(round(current_profile.get("umami", 0)))
-        c_bitter = int(round(current_profile.get("bitter", 0)))
-        c_spicy = int(round(current_profile.get("spicy", 0)))
-        
-        new_salty = st.slider("Salty Rating", 0, 450, c_salt, key=f"salt_sl_{target_edit_item}")
-        new_sour = st.slider("Sour Rating", 0, 450, c_sour, key=f"sour_sl_{target_edit_item}")
-        new_sweet = st.slider("Sweet Rating", 0, 450, c_sweet, key=f"sweet_sl_{target_edit_item}")
-        new_umami = st.slider("Umami Rating", 0, 450, c_umami, key=f"umami_sl_{target_edit_item}")
-        new_bitter = st.slider("Bitter Rating", 0, 450, c_bitter, key=f"bitter_sl_{target_edit_item}")
-        new_spicy = st.slider("Spicy Rating", 0, 450, c_spicy, key=f"spicy_sl_{target_edit_item}")
-        
-        col_save, col_del = st.columns(2)
-        with col_save:
-            if st.button("💾 Permanently Override & Calibrate", key="btn_save_calibration"):
-                updated_values = {
-                    "salty": new_salty, "sour": new_sour, "sweet": new_sweet,
-                    "umami": new_umami, "bitter": new_bitter, "spicy": new_spicy
-                }
-                
-                if new_name_input != target_edit_item:
-                    st.session_state.custom_db[new_name_input] = updated_values
-                    if target_edit_item in st.session_state.custom_db:
-                        del st.session_state.custom_db[target_edit_item]
-                    st.success(f"Renamed and re-calibrated item to '{new_name_input}'!")
-                else:
-                    st.session_state.custom_db[target_edit_item] = updated_values
-                    st.success(f"Successfully re-calibrated profiles for '{target_edit_item}'!")
-                
-                save_permanent_library(st.session_state.custom_db)
-                st.rerun()
-                
-        with col_del:
-            if target_edit_item in st.session_state.custom_db:
-                if st.button("🗑️ Completely Delete from Library", key="btn_delete_calibration"):
-                    del st.session_state.custom_db[target_edit_item]
-                    save_permanent_library(st.session_state.custom_db)
-                    st.toast(f"Purged {target_edit_item} from custom storage channels.")
-                    st.rerun()
+        if not api_key:
+            st.error("🔑 **API Key Connection Error:** Your Streamlit cloud dashboard is missing its secure access token. Please follow the setup steps below to activate live AI analysis.")
+            st.markdown("""
+            ### How to link your free API key:
+            1. Go to your **Streamlit Cloud Dashboard** (where you manage your deployed website).
+            2. Click on the **three dots (...)** next to your app name and select **Settings**.
+            3. Go to the **Secrets** tab panel.
+            4. Paste this exact configuration inside the text box and click Save:
+               ```text
+               GEMINI_API_KEY = "your_actual_free_api_key_here"
+               ```
+            """)
+        elif new_ing_name:
+            with st.spinner("Streaming data profiles from live molecular food chemistry indexes..."):
+                try:
+                    # Initialize communication channel with official client tools
+                    client = genai.Client(api_key=api_key)
+                    
+                    prompt = f"""
+                    Analyze the culinary taste profile for exactly 10 grams of raw '{new_ing_name}'.
+                    Provide strict flavor readings mapped precisely to this evaluation scale:
+                    - Values must range strictly from 0 to 450 (0 = completely absent, 450 = hyper-dense pure crystalline form).
+                    - High benchmarks for context: Pure Sea Salt = salty: 400. Pure White Sugar = sweet: 380. MSG = umami: 450. Pure Distilled Vinegar = sour: 280.
+                    
+                    Return ONLY a clean JSON object containing these exact keys: "salty", "sour", "sweet", "umami", "bitter", "spicy". Do not include markdown codeblocks or extra text.
+                    """
+                    
+                    # Call standard lightweight fast analytical inference models
+                    response = client.models.generate_content(
+                        model='gemini-2.5-flash',
+                        contents=prompt,
+                        config=types.GenerateContentConfig(response_mime_type="application/json")
+                    )
+                    
+                    # Clean out formatting blocks and parse variables cleanly
