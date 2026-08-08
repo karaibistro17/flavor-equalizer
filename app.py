@@ -30,6 +30,33 @@ def save_permanent_library(data):
     except Exception:
         return False
 
+# --- ISOLATED BACKGROUND AI SCANNED ENGINE BLOCK ---
+def run_molecular_ai_scan(ingredient_name, token_key):
+    """Executes live chemical data mining completely decoupled from the UI loops to prevent syntax errors."""
+    try:
+        client = genai.Client(api_key=token_key)
+        prompt = f"Analyze taste metrics for 10g raw '{ingredient_name}'. Range: 0-450. Max context anchors: Sea Salt salty:400, Sugar sweet:380, MSG umami:450, Vinegar sour:280. Return ONLY JSON object with keys: salty, sour, sweet, umami, bitter, spicy. No markdown formatting blocks."
+        
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt,
+            config=types.GenerateContentConfig(response_mime_type="application/json")
+        )
+        
+        raw_text = response.text.strip().replace("```json", "").replace("```", "")
+        computed_profile = json.loads(raw_text)
+        
+        # Clean whole integer compliance loop to lock out slider decimals
+        validated_dict = {}
+        for taste_key in ["salty", "sour", "sweet", "umami", "bitter", "spicy"]:
+            raw_val = computed_profile.get(taste_key, 0)
+            validated_dict[taste_key] = int(round(float(raw_val)))
+            
+        return validated_dict
+    except Exception as network_error:
+        st.error(f"Inference pipeline bottleneck: {network_error}")
+        return None
+
 # Initialize database session states cleanly
 if "custom_db" not in st.session_state:
     st.session_state.custom_db = load_permanent_library()
@@ -128,7 +155,7 @@ with tab1:
 
     max_val = max(totals.values()) if max(totals.values()) > 0 else 1
     for taste in totals:
-        totals[taste] = int((totals[taste] / max_val) * 1000)
+        totals[taste] = int(round((totals[taste] / max_val) * 1000))
 
     st.subheader("📊 Calibrated Final Equalizer Display")
     tastes = list(totals.keys())
@@ -166,7 +193,7 @@ with tab1:
     st.pyplot(fig)
 
 # ==========================================
-# TAB 2: LIVE AI DATABASE TERMINAL
+# TAB 2: LIVE AI DATABASE TERMINAL (SECURE CODEWAYS)
 # ==========================================
 with tab2:
     st.title("🧬 AI Molecular Database Terminal")
@@ -179,40 +206,19 @@ with tab2:
         api_key = st.secrets.get("GEMINI_API_KEY") or os.environ.get("GEMINI_API_KEY")
         
         if not api_key:
-            st.error("🔑 **API Key Connection Error:** Your Streamlit cloud dashboard is missing its secure access token. Please follow the setup steps below to activate live AI analysis.")
+            st.error("🔑 **API Key Connection Error:** Missing access token sequence inside your dashboard configuration environment.")
             st.markdown("""
             ### How to link your free API key:
-            1. Go to your **Streamlit Cloud Dashboard** (where you manage your deployed website).
+            1. Go to your **Streamlit Cloud Dashboard**.
             2. Click on the **three dots (...)** next to your app name and select **Settings**.
-            3. Go to the **Secrets** tab panel.
-            4. Paste this exact configuration inside the text box and click Save:
+            3. Go to the **Secrets** text console.
+            4. Paste this exact configuration inside the block and click Save:
                ```text
                GEMINI_API_KEY = "your_actual_free_api_key_here"
                ```
             """)
         elif new_ing_name:
             with st.spinner("Streaming data profiles from live molecular food chemistry indexes..."):
-                try:
-                    client = genai.Client(api_key=api_key)
-                    
-                    prompt = f"""
-                    Analyze the culinary taste profile for exactly 10 grams of raw '{new_ing_name}'.
-                    Provide strict flavor readings mapped precisely to this evaluation scale:
-                    - Values must range strictly from 0 to 450 (0 = completely absent, 450 = hyper-dense pure crystalline form).
-                    - High benchmarks for context: Pure Sea Salt = salty: 400. Pure White Sugar = sweet: 380. MSG = umami: 450. Pure Distilled Vinegar = sour: 280.
-                    
-                    Return ONLY a clean JSON object containing these exact keys: "salty", "sour", "sweet", "umami", "bitter", "spicy". Do not include markdown codeblocks or extra text.
-                    """
-                    
-                    response = client.models.generate_content(
-                        model='gemini-2.5-flash',
-                        contents=prompt,
-                        config=types.GenerateContentConfig(response_mime_type="application/json")
-                    )
-                    
-                    raw_text = response.text.strip().replace("```json", "").replace("```", "")
-                    computed_profile = json.loads(raw_text)
-                    
-                    for k in computed_profile:
-                        computed_profile[k] = int(round(float(computed_profile[k])))
-                        
+                # Safe operational call channeled through the background function layer
+                scan_result = run_molecular_ai_scan(new_ing_name, api_key)
+                if scan_result:
